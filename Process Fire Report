@@ -1,0 +1,88 @@
+import system
+import csv
+import time
+
+# Define the list of triggering components
+triggerComponentPath = [
+    {"path": "x/GVBED1/F19/F19:35"},
+    {"path": "x/GVBED1/F53/F53:245"},
+]
+
+# Define the list of components to monitor with corresponding column headers
+componentPaths = [
+    {"path": "x/GVBED1/F53/F53:60", "header": "D1 inlet temp"},
+    {"path": "x/GVBED1/F53/F53:65", "header": "D1 outlet temp"},
+    {"path": "x/GVBED1/F53/F53:70", "header": "D2 inlet temp"},
+    {"path": "x/GVBED1/F53/F53:75", "header": "D2 outlet temp"},
+    {"path": "x/GVBED1/F53/F53:80", "header": "D3 inlet temp"},
+    {"path": "x/GVBED1/F53/F53:85", "header": "D3 outlet temp"},
+    {"path": "x/GVBED1/F53/F53:115", "header": "Burn Chamber temp"},
+    {"path": "x/GVBED1/F53/F53:120", "header": "Plenum temp"},
+    {"path": "x/GVBED1/PD90/F554/F554:14", "header": "TCV-101 D1 Damper pos"},
+    {"path": "x/GVBED1/N:108/TCV102", "header": "TCV-102 D2 Damper pos"},
+    {"path": "x/GVBED1/PD90/F554/F554:16", "header": "TCV-103 D3 Damper pos"},
+    {"path": "x/GVBED4/B10_Damper_Scaled_pos_Ing", "header": "B10 Damper pos"},
+    {"path": "x/GVBED3/ACO_D4_Dry_Scaled", "header": "ACO moisture %"},
+    {"path": "x/GVBED1/N110/TCV104", "header": "TCV-104 D3 Cold Damper pos"},
+    {"path": "x/GVBED4/TCV107", "header": "TCV-107 D1 Cold Damper pos"},
+    {"path": "x/GVBED4/TCV108", "header": "TCV-108 D2 Cold Damper pos"},
+    {"path": "x/GVBED3/M15_Press_Fiber_Lbs_Hour", "header": "Lbs per hour"},
+    {"path": "x/GVBED4/TE_Tank_Farm", "header": "Outside Temp"}
+]
+
+# Define the path of the CSV file to store the state information
+csvDirectoryPath = "C:\\Users\\x\\Documents\\Ignition Fire Report\\"
+csvFilePath = csvDirectoryPath + "output.csv"
+
+# Initialize a flag variable to False
+eventTriggered = False
+
+# Initialize a variable to store the previous state of the triggering conditions
+previousState = False
+
+while True:
+    ## Get the current timestamp
+    currentTimestamp = system.date.now()
+
+    # Calculate the timestamp 5 seconds before the current time
+    captureStartTimestamp = system.date.addSeconds(currentTimestamp, -5)
+
+    # Read the current value of the triggering components
+    triggerComponentValues = [system.tag.read(trigger["path"]).value for trigger in triggerComponentPath]
+
+    # Check if the values of both triggering components reach zero
+    currentState = triggerComponentValues[0] == 0 and triggerComponentValues[1] <= 8
+
+    # Check if the state has changed from False to True
+    if currentState and not previousState:
+        print("Trigger Component Values:", triggerComponentValues)
+
+        # Open the file in append mode using the csv module
+        csvfile = open(csvFilePath, mode='a')
+        writer = csv.writer(csvfile)
+
+        # Check if the file is empty
+        if csvfile.tell() == 0:
+            # Write column headers if the file is empty
+            columnHeaders = ["Timestamp"]
+            columnHeaders.extend(component["header"] for component in componentPaths)
+            writer.writerow(columnHeaders)
+
+        # Capture component states
+        states = [system.tag.read(component["path"]).value for component in componentPaths]
+
+        # Write captured states to CSV file
+        row = [captureStartTimestamp]
+        row.extend(states)
+        writer.writerow(row)
+
+        # Close the CSV file
+        csvfile.close()
+
+        print("Data written to CSV at", captureStartTimestamp)
+
+    # Update the previousState variable
+    previousState = currentState
+
+    # Sleep for a short duration before checking again
+    time.sleep(5)
